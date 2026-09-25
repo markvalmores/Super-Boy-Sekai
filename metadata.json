@@ -1,0 +1,7 @@
+{
+  "name": "Super Boy Sekai: 1001 Dimensional Odyssey",
+  "description": "2.5D Anime Super Boy Sekai platformer adventure game with 1001 stages, raytracing shaders, device hardware detection, custom anime boy skills & gear, and real-time leaderboards.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
