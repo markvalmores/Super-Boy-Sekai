@@ -222,6 +222,7 @@ export interface DeviceInfo {
 
 export interface GraphicSettings {
   rayTracingEnabled: boolean;
+  rayTracingMode?: 'off' | 'gpu' | 'cpu' | 'path_tracing';
   pathTracingSim: boolean;
   aiFrameGeneration: boolean;
   bloomEnabled: boolean;
@@ -230,6 +231,7 @@ export interface GraphicSettings {
   crtFilter: boolean;
   particleDensity: 'low' | 'medium' | 'high' | 'ultra';
   targetFps: number;
+  mobileControlsMode?: 'auto' | 'always' | 'never';
 }
 
 export interface LeaderboardRecord {

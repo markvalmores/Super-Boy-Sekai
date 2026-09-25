@@ -405,6 +405,8 @@ export class GameEngine {
 
   private checkTileCollisionX() {
     for (const b of this.level.blocks) {
+      if (Math.abs(b.x - this.player.x) > 120) continue;
+
       if (b.isDestroyed || b.type === 'flagpole') {
         if (
           b.type === 'flagpole' &&
@@ -438,6 +440,7 @@ export class GameEngine {
 
   private checkTileCollisionY() {
     for (const b of this.level.blocks) {
+      if (Math.abs(b.x - this.player.x) > 120) continue;
       if (b.isDestroyed || b.type === 'flagpole') continue;
 
       if (

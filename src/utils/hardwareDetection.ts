@@ -1,5 +1,14 @@
 import { DeviceInfo, GraphicSettings } from '../types/game';
 
+export function isMobileDevice(): boolean {
+  if (typeof window === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+  const isMobileUA = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini|Mobile|mobile/i.test(ua);
+  const isSmallScreen = window.innerWidth <= 1024;
+  return isMobileUA || (isTouch && isSmallScreen);
+}
+
 export function detectDeviceHardware(): DeviceInfo {
   let gpuVendor = 'Generic GPU';
   let gpuRenderer = 'Standard WebGL Engine';
@@ -34,7 +43,7 @@ export function detectDeviceHardware(): DeviceInfo {
   // CPU cores
   const cpuCores = navigator.hardwareConcurrency || 8;
 
-  // RAM estimate (in GB, clamped by browser API privacy)
+  // RAM estimate (in GB)
   // @ts-ignore
   const ramGB = (navigator.deviceMemory as number) || (cpuCores >= 8 ? 16 : 8);
 
@@ -42,7 +51,7 @@ export function detectDeviceHardware(): DeviceInfo {
   const ua = navigator.userAgent;
   let devicePlatform = 'Desktop Workstation';
   if (/Android/i.test(ua)) devicePlatform = 'Android Mobile / Tablet';
-  else if (/iPhone|iPad|iPod/i.test(ua)) devicePlatform = 'Apple iOS Device';
+  else if (/iPhone|iPad|iPod/i.test(ua)) devicePlatform = 'Apple iOS Mobile';
   else if (/Macintosh|Mac OS X/i.test(ua)) devicePlatform = 'Apple macOS System';
   else if (/Windows/i.test(ua)) devicePlatform = 'Microsoft Windows PC';
   else if (/Linux/i.test(ua)) devicePlatform = 'Linux Terminal Station';
@@ -80,47 +89,56 @@ export function detectDeviceHardware(): DeviceInfo {
 }
 
 export function getDefaultGraphicSettings(tier: 'Low' | 'Balanced' | 'High' | 'Ultra RTX'): GraphicSettings {
+  const isMobile = isMobileDevice();
+
   switch (tier) {
     case 'Ultra RTX':
       return {
         rayTracingEnabled: true,
+        rayTracingMode: 'gpu',
         pathTracingSim: true,
         aiFrameGeneration: true,
         bloomEnabled: true,
         celShadingOutlines: true,
         shadowQuality: 'ultra',
         crtFilter: false,
-        particleDensity: 'ultra',
-        targetFps: 120
+        particleDensity: isMobile ? 'medium' : 'ultra',
+        targetFps: 120,
+        mobileControlsMode: 'auto'
       };
     case 'High':
       return {
         rayTracingEnabled: true,
+        rayTracingMode: 'gpu',
         pathTracingSim: false,
         aiFrameGeneration: true,
         bloomEnabled: true,
         celShadingOutlines: true,
         shadowQuality: 'medium',
         crtFilter: false,
-        particleDensity: 'high',
-        targetFps: 60
+        particleDensity: isMobile ? 'medium' : 'high',
+        targetFps: 60,
+        mobileControlsMode: 'auto'
       };
     case 'Balanced':
       return {
-        rayTracingEnabled: false,
+        rayTracingEnabled: true,
+        rayTracingMode: 'cpu',
         pathTracingSim: false,
-        aiFrameGeneration: false,
+        aiFrameGeneration: true,
         bloomEnabled: true,
         celShadingOutlines: true,
         shadowQuality: 'medium',
         crtFilter: false,
         particleDensity: 'medium',
-        targetFps: 60
+        targetFps: 60,
+        mobileControlsMode: 'auto'
       };
     case 'Low':
     default:
       return {
         rayTracingEnabled: false,
+        rayTracingMode: 'off',
         pathTracingSim: false,
         aiFrameGeneration: false,
         bloomEnabled: false,
@@ -128,7 +146,8 @@ export function getDefaultGraphicSettings(tier: 'Low' | 'Balanced' | 'High' | 'U
         shadowQuality: 'off',
         crtFilter: false,
         particleDensity: 'low',
-        targetFps: 30
+        targetFps: 30,
+        mobileControlsMode: 'auto'
       };
   }
 }

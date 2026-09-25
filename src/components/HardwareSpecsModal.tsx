@@ -158,22 +158,55 @@ export const HardwareSpecsModal: React.FC<Props> = ({
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {/* Ray Tracing */}
+              {/* GPU Ray Tracing */}
               <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between">
                 <div>
                   <div className="font-bold text-sm text-white flex items-center gap-1.5">
                     <Zap className="w-4 h-4 text-amber-400" />
-                    Ray Tracing Emissive Lighting
+                    GPU Ray Tracing Pipeline
                   </div>
-                  <div className="text-xs text-slate-400">Screen-space global illumination & dynamic point lights</div>
+                  <div className="text-xs text-slate-400">Dynamic point light emission & real-time emissive reflection</div>
                 </div>
                 <button
-                  onClick={() => onUpdateSettings({ ...settings, rayTracingEnabled: !settings.rayTracingEnabled })}
+                  onClick={() =>
+                    onUpdateSettings({
+                      ...settings,
+                      rayTracingEnabled: !settings.rayTracingEnabled,
+                      rayTracingMode: !settings.rayTracingEnabled ? 'gpu' : 'off',
+                    })
+                  }
                   className={`w-12 h-6 flex items-center rounded-full p-1 transition duration-300 ${
-                    settings.rayTracingEnabled ? 'bg-red-600 justify-end' : 'bg-slate-800 justify-start'
+                    settings.rayTracingEnabled ? 'bg-amber-600 justify-end' : 'bg-slate-800 justify-start'
                   }`}
                 >
                   <div className="w-4 h-4 bg-white rounded-full shadow-md transform" />
+                </button>
+              </div>
+
+              {/* CPU Ray Tracing / Fallback Mode */}
+              <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-sm text-white flex items-center gap-1.5">
+                    <Cpu className="w-4 h-4 text-sky-400" />
+                    CPU Ray Tracing Fallback
+                  </div>
+                  <div className="text-xs text-slate-400">Software multi-threaded raycasting & light attenuation</div>
+                </div>
+                <button
+                  onClick={() =>
+                    onUpdateSettings({
+                      ...settings,
+                      rayTracingMode: settings.rayTracingMode === 'cpu' ? 'gpu' : 'cpu',
+                      rayTracingEnabled: true,
+                    })
+                  }
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold border transition ${
+                    settings.rayTracingMode === 'cpu'
+                      ? 'bg-sky-500/20 border-sky-400 text-sky-300'
+                      : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {settings.rayTracingMode === 'cpu' ? 'CPU MODE' : 'GPU MODE'}
                 </button>
               </div>
 
@@ -184,7 +217,7 @@ export const HardwareSpecsModal: React.FC<Props> = ({
                     <Sparkles className="w-4 h-4 text-cyan-400" />
                     AI Frame Generation
                   </div>
-                  <div className="text-xs text-slate-400">Motion optical interpolation (60 → 120 FPS)</div>
+                  <div className="text-xs text-slate-400">Sub-frame neural motion interpolation (60 → 120/144 FPS)</div>
                 </div>
                 <button
                   onClick={() => onUpdateSettings({ ...settings, aiFrameGeneration: !settings.aiFrameGeneration })}
@@ -196,23 +229,54 @@ export const HardwareSpecsModal: React.FC<Props> = ({
                 </button>
               </div>
 
-              {/* Path Tracing Sim */}
+              {/* Path Tracing Simulation */}
               <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between">
                 <div>
                   <div className="font-bold text-sm text-white flex items-center gap-1.5">
                     <Activity className="w-4 h-4 text-purple-400" />
-                    Path Traced Ambient Occlusion
+                    Ultra Path Tracing (AO & Bounce)
                   </div>
-                  <div className="text-xs text-slate-400">Soft contact shadows & bounce radiance</div>
+                  <div className="text-xs text-slate-400">Full Monte Carlo sky & ground bounce radiance</div>
                 </div>
                 <button
-                  onClick={() => onUpdateSettings({ ...settings, pathTracingSim: !settings.pathTracingSim })}
+                  onClick={() =>
+                    onUpdateSettings({
+                      ...settings,
+                      pathTracingSim: !settings.pathTracingSim,
+                      rayTracingEnabled: true,
+                    })
+                  }
                   className={`w-12 h-6 flex items-center rounded-full p-1 transition duration-300 ${
                     settings.pathTracingSim ? 'bg-purple-600 justify-end' : 'bg-slate-800 justify-start'
                   }`}
                 >
                   <div className="w-4 h-4 bg-white rounded-full shadow-md transform" />
                 </button>
+              </div>
+
+              {/* Mobile Phone Controls Detection */}
+              <div className="p-3 bg-slate-950/60 border border-slate-800 rounded-xl flex items-center justify-between">
+                <div>
+                  <div className="font-bold text-sm text-white flex items-center gap-1.5">
+                    <Monitor className="w-4 h-4 text-emerald-400" />
+                    Mobile Phone Controls
+                  </div>
+                  <div className="text-xs text-slate-400">Auto-detect touch screen & viewport hardware</div>
+                </div>
+                <select
+                  value={settings.mobileControlsMode || 'auto'}
+                  onChange={e =>
+                    onUpdateSettings({
+                      ...settings,
+                      mobileControlsMode: e.target.value as any,
+                    })
+                  }
+                  className="bg-slate-900 border border-slate-700 text-xs text-sky-300 px-2.5 py-1 rounded-lg focus:outline-none focus:border-sky-400"
+                >
+                  <option value="auto">Auto-Detect</option>
+                  <option value="always">Always Show</option>
+                  <option value="never">Hide</option>
+                </select>
               </div>
 
               {/* Game Boy CRT Filter */}

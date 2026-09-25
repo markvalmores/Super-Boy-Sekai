@@ -72,6 +72,7 @@ export class ThreeRenderer {
 
   // Dynamic Lighting
   private ambientLight: THREE.AmbientLight;
+  private hemiLight: THREE.HemisphereLight;
   private sunLight: THREE.DirectionalLight;
   private playerPointLight: THREE.PointLight;
   private raytraceLightPool: THREE.PointLight[] = [];
@@ -107,17 +108,22 @@ export class ThreeRenderer {
     container.appendChild(this.renderer.domElement);
 
     // 4. Lights
-    this.ambientLight = new THREE.AmbientLight(0xfffaed, 0.9);
+    this.ambientLight = new THREE.AmbientLight(0xfffaed, 0.7);
     this.scene.add(this.ambientLight);
+
+    // Path Tracing Hemisphere Bounce Light (Sky radiance + Ground bounce radiance)
+    this.hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x1e293b, settings.pathTracingSim ? 0.9 : 0.4);
+    this.scene.add(this.hemiLight);
 
     this.sunLight = new THREE.DirectionalLight(0xfffaed, 1.4);
     this.sunLight.position.set(150, 350, 260);
     this.sunLight.castShadow = settings.shadowQuality !== 'off';
     if (this.sunLight.castShadow) {
-      this.sunLight.shadow.mapSize.width = 1024;
-      this.sunLight.shadow.mapSize.height = 1024;
+      this.sunLight.shadow.mapSize.width = settings.shadowQuality === 'ultra' ? 2048 : 1024;
+      this.sunLight.shadow.mapSize.height = settings.shadowQuality === 'ultra' ? 2048 : 1024;
       this.sunLight.shadow.camera.near = 10;
       this.sunLight.shadow.camera.far = 1200;
+      this.sunLight.shadow.bias = -0.0005;
     }
     this.scene.add(this.sunLight);
 
@@ -1009,6 +1015,74 @@ export class ThreeRenderer {
     return group;
   }
 
+  // Cached Hit Spark Texture Generator & Shared Geometry for Zero-Garbage Performance
+  private hitSparkTextureCache: Map<string, THREE.Texture> = new Map();
+  private sharedSparkGeo = new THREE.PlaneGeometry(36, 36);
+
+  private getCachedHitSparkTexture(type: string, text?: string): THREE.Texture {
+    const key = `${type}_${text || ''}`;
+    let cached = this.hitSparkTextureCache.get(key);
+    if (cached) return cached;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = 256;
+    canvas.height = 256;
+    const ctx = canvas.getContext('2d')!;
+
+    const w = 256;
+    const h = 256;
+    const cx = w / 2;
+    const cy = h / 2;
+
+    const points = type === 'ko' ? 12 : 8;
+    const outerR = 100;
+    const innerR = 35;
+
+    ctx.fillStyle = type === 'player_hurt' ? '#ef4444' : type === 'sword_slash' ? '#38bdf8' : type === 'slime_splash' ? '#06b6d4' : '#facc15';
+    ctx.beginPath();
+    for (let i = 0; i < points * 2; i++) {
+      const angle = (i * Math.PI) / points;
+      const r = i % 2 === 0 ? outerR : innerR;
+      const px = cx + Math.cos(angle) * r;
+      const py = cy + Math.sin(angle) * r;
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = type === 'sword_slash' ? '#ffffff' : '#38bdf8';
+    ctx.lineWidth = 6;
+    ctx.beginPath();
+    for (let b = 0; b < 6; b++) {
+      const a = (b * Math.PI) / 3;
+      ctx.moveTo(cx, cy);
+      ctx.lineTo(cx + Math.cos(a) * 60, cy + Math.sin(a) * 60);
+      ctx.lineTo(cx + Math.cos(a) * 115, cy + Math.sin(a) * 115);
+    }
+    ctx.stroke();
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(cx, cy, 28, 0, Math.PI * 2);
+    ctx.fill();
+
+    if (text) {
+      ctx.fillStyle = '#0f172a';
+      ctx.font = '900 28px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 6;
+      ctx.strokeText(text, cx, cy);
+      ctx.fillText(text, cx, cy);
+    }
+
+    const tex = new THREE.CanvasTexture(canvas);
+    this.hitSparkTextureCache.set(key, tex);
+    return tex;
+  }
+
   // Synchronize Hit Sparks & Visual Combat Decals
   public syncHitSparks(hitSparks: HitSparkEntity[]) {
     const activeIds = new Set<string>();
@@ -1043,70 +1117,15 @@ export class ThreeRenderer {
 
   private createTekkenHitSparkMesh(spark: HitSparkEntity): THREE.Object3D {
     const group = new THREE.Group();
-    const canvas = document.createElement('canvas');
-    canvas.width = 256;
-    canvas.height = 256;
-    const ctx = canvas.getContext('2d')!;
-
-    const w = 256;
-    const h = 256;
-    const cx = w / 2;
-    const cy = h / 2;
-
-    const points = spark.type === 'ko' ? 12 : 8;
-    const outerR = 100;
-    const innerR = 35;
-
-    ctx.fillStyle = spark.type === 'player_hurt' ? '#ef4444' : spark.type === 'sword_slash' ? '#38bdf8' : '#facc15';
-    ctx.beginPath();
-    for (let i = 0; i < points * 2; i++) {
-      const angle = (i * Math.PI) / points;
-      const r = i % 2 === 0 ? outerR : innerR;
-      const px = cx + Math.cos(angle) * r;
-      const py = cy + Math.sin(angle) * r;
-      if (i === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.closePath();
-    ctx.fill();
-
-    ctx.strokeStyle = spark.type === 'sword_slash' ? '#ffffff' : '#38bdf8';
-    ctx.lineWidth = 6;
-    ctx.beginPath();
-    for (let b = 0; b < 6; b++) {
-      const a = (b * Math.PI) / 3;
-      ctx.moveTo(cx, cy);
-      ctx.lineTo(cx + Math.cos(a) * 60 + (Math.random() - 0.5) * 20, cy + Math.sin(a) * 60 + (Math.random() - 0.5) * 20);
-      ctx.lineTo(cx + Math.cos(a) * 115, cy + Math.sin(a) * 115);
-    }
-    ctx.stroke();
-
-    ctx.fillStyle = '#ffffff';
-    ctx.beginPath();
-    ctx.arc(cx, cy, 28, 0, Math.PI * 2);
-    ctx.fill();
-
-    if (spark.text) {
-      ctx.fillStyle = '#0f172a';
-      ctx.font = '900 30px sans-serif';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.strokeStyle = '#ffffff';
-      ctx.lineWidth = 8;
-      ctx.strokeText(spark.text, cx, cy);
-      ctx.fillText(spark.text, cx, cy);
-    }
-
-    const tex = new THREE.CanvasTexture(canvas);
-    const planeGeo = new THREE.PlaneGeometry(36, 36);
+    const tex = this.getCachedHitSparkTexture(spark.type, spark.text);
     const planeMat = new THREE.MeshBasicMaterial({
       map: tex,
       transparent: true,
       side: THREE.DoubleSide,
+      depthWrite: false,
     });
-    const sparkMesh = new THREE.Mesh(planeGeo, planeMat);
+    const sparkMesh = new THREE.Mesh(this.sharedSparkGeo, planeMat);
     group.add(sparkMesh);
-
     return group;
   }
 
@@ -1384,7 +1403,27 @@ export class ThreeRenderer {
   public updateGraphicSettings(settings: GraphicSettings) {
     this.graphicSettings = settings;
     this.renderer.shadowMap.enabled = settings.shadowQuality !== 'off';
-    this.renderer.toneMappingExposure = settings.rayTracingEnabled ? 1.25 : 1.05;
+    this.renderer.toneMappingExposure = settings.pathTracingSim
+      ? 1.35
+      : settings.rayTracingEnabled
+      ? 1.25
+      : 1.05;
+
+    if (this.hemiLight) {
+      this.hemiLight.intensity = settings.pathTracingSim ? 0.9 : settings.rayTracingEnabled ? 0.6 : 0.3;
+    }
+
+    if (this.playerPointLight) {
+      this.playerPointLight.intensity = settings.rayTracingEnabled ? 1.4 : 0.8;
+    }
+
+    if (this.sunLight) {
+      this.sunLight.castShadow = settings.shadowQuality !== 'off';
+      if (this.sunLight.shadow && this.sunLight.shadow.map) {
+        this.sunLight.shadow.mapSize.width = settings.shadowQuality === 'ultra' ? 2048 : 1024;
+        this.sunLight.shadow.mapSize.height = settings.shadowQuality === 'ultra' ? 2048 : 1024;
+      }
+    }
   }
 
   public dispose() {
